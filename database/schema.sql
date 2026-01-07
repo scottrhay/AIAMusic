@@ -39,7 +39,7 @@ CREATE TABLE styles (
 CREATE TABLE songs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    status ENUM('create', 'submitted', 'completed', 'unspecified') DEFAULT 'create',
+    status ENUM('create', 'submitted', 'completed', 'failed', 'unspecified') DEFAULT 'create',
     specific_title VARCHAR(500),
     specific_lyrics TEXT,
     prompt_to_generate TEXT,

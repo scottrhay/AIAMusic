@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createSong, updateSong } from '../services/songs';
 import './SongModal.css';
 
-function SongModal({ song, styles, onClose }) {
+function SongModal({ song, styles, songs, onClose }) {
   const [formData, setFormData] = useState({
     specific_title: '',
+    version: 'v1',
     specific_lyrics: '',
     prompt_to_generate: '',
     style_id: '',
@@ -18,6 +19,7 @@ function SongModal({ song, styles, onClose }) {
     if (song) {
       setFormData({
         specific_title: song.specific_title || '',
+        version: song.version || 'v1',
         specific_lyrics: song.specific_lyrics || '',
         prompt_to_generate: song.prompt_to_generate || '',
         style_id: song.style_id || '',
@@ -27,9 +29,42 @@ function SongModal({ song, styles, onClose }) {
     }
   }, [song]);
 
+  // Auto-calculate version when title changes (only for new songs)
+  const calculateNextVersion = (title) => {
+    if (!title || !songs || songs.length === 0) return 'v1';
+
+    // Find all songs with the same title
+    const sameTitleSongs = songs.filter(s =>
+      s.specific_title && s.specific_title.toLowerCase() === title.toLowerCase()
+    );
+
+    if (sameTitleSongs.length === 0) return 'v1';
+
+    // Get all version numbers
+    const versionNumbers = sameTitleSongs
+      .map(s => {
+        const version = s.version || 'v1';
+        const match = version.match(/v(\d+)/);
+        return match ? parseInt(match[1]) : 1;
+      })
+      .filter(num => !isNaN(num));
+
+    // Find the highest version number and increment
+    const maxVersion = Math.max(...versionNumbers, 0);
+    return `v${maxVersion + 1}`;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // If title changes and this is a new song (not editing), auto-calculate version
+    if (name === 'specific_title' && (!song || !song.id)) {
+      const nextVersion = calculateNextVersion(value);
+      setFormData((prev) => ({ ...prev, [name]: value, version: nextVersion }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
     setError('');
   };
 
@@ -45,7 +80,7 @@ function SongModal({ song, styles, onClose }) {
         style_id: formData.style_id ? parseInt(formData.style_id) : null,
       };
 
-      if (song) {
+      if (song && song.id) {
         await updateSong(song.id, dataToSend);
       } else {
         await createSong(dataToSend);
@@ -63,7 +98,7 @@ function SongModal({ song, styles, onClose }) {
     <div className="modal-overlay" onClick={() => onClose(false)}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{song ? 'Edit Song' : 'Add New Song'}</h2>
+          <h2>{song && song.id ? 'Edit Song' : 'Add New Song'}</h2>
           <button className="modal-close" onClick={() => onClose(false)}>
             ×
           </button>
@@ -73,7 +108,7 @@ function SongModal({ song, styles, onClose }) {
 
         <form onSubmit={handleSubmit}>
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group" style={{ flex: 3 }}>
               <label>Song Title</label>
               <input
                 type="text"
@@ -84,30 +119,38 @@ function SongModal({ song, styles, onClose }) {
               />
             </div>
 
-            <div className="form-group">
-              <label>Status</label>
-              <select name="status" value={formData.status} onChange={handleChange}>
-                <option value="create">Create</option>
-                <option value="submitted">Submitted</option>
-                <option value="completed">Completed</option>
-                <option value="unspecified">Unspecified</option>
-              </select>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Version</label>
+              <input
+                type="text"
+                name="version"
+                value={formData.version}
+                onChange={handleChange}
+                placeholder="v1"
+                readOnly={!song || !song.id}
+                style={{ backgroundColor: (!song || !song.id) ? '#f5f5f5' : 'white' }}
+                title={(!song || !song.id) ? 'Version is auto-calculated based on title' : 'Edit version number'}
+              />
             </div>
           </div>
 
           <div className="form-group">
-            <label>Lyrics</label>
+            <label>Lyrics (max 5000 characters)</label>
             <textarea
               name="specific_lyrics"
               value={formData.specific_lyrics}
               onChange={handleChange}
               rows="6"
+              maxLength="5000"
               placeholder="Enter song lyrics..."
             />
+            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+              {formData.specific_lyrics.length}/5000 characters
+            </div>
           </div>
 
           <div className="form-group">
-            <label>Prompt to Generate (Optional)</label>
+            <label>Prompt to Generate Lyrics (Optional)</label>
             <textarea
               name="prompt_to_generate"
               value={formData.prompt_to_generate}
@@ -139,7 +182,6 @@ function SongModal({ song, styles, onClose }) {
               >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="other">Other</option>
               </select>
             </div>
           </div>
@@ -154,7 +196,7 @@ function SongModal({ song, styles, onClose }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : song ? 'Update Song' : 'Create Song'}
+              {saving ? 'Saving...' : song && song.id ? 'Update Song' : 'Create Song'}
             </button>
           </div>
         </form>

@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSongs, getSongStats, deleteSong } from '../services/songs';
 import { getStyles } from '../services/styles';
-import { getUser } from '../services/auth';
-import SongCard from '../components/SongCard';
+import StudioHeader from '../components/Studio/StudioHeader';
+import ControlBar from '../components/Studio/ControlBar';
+import SongGrid from '../components/Studio/SongGrid';
+import SongCardEnhanced from '../components/Studio/SongCardEnhanced';
 import SongModal from '../components/SongModal';
 import SongViewModal from '../components/SongViewModal';
-import './Home.css';
+import '../theme/theme.css';
+import './HomeEnhanced.css';
 
-function Home({ onLogout }) {
+function HomeEnhanced({ onLogout }) {
   const navigate = useNavigate();
   const [songs, setSongs] = useState([]);
   const [styles, setStyles] = useState([]);
@@ -25,8 +28,6 @@ function Home({ onLogout }) {
     search: '',
     all_users: false,
   });
-
-  const user = getUser();
 
   useEffect(() => {
     loadData();
@@ -117,116 +118,46 @@ function Home({ onLogout }) {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const getStatusCount = (status) => {
-    switch (status) {
-      case 'all':
-        return stats.total || 0;
-      case 'create':
-        return stats.create || 0;
-      case 'submitted':
-        return stats.submitted || 0;
-      case 'completed':
-        return stats.completed || 0;
-      case 'failed':
-        return stats.failed || 0;
-      default:
-        return 0;
-    }
+  const handleClearFilters = () => {
+    setFilters({
+      status: 'all',
+      style_id: '',
+      vocal_gender: 'all',
+      search: '',
+      all_users: false,
+    });
   };
 
+  const hasActiveFilters = useMemo(() => {
+    return filters.search || filters.style_id || filters.vocal_gender !== 'all' || filters.all_users;
+  }, [filters]);
+
   return (
-    <div className="app-container">
-      <header className="header">
-        <h1>Hay Music Studio</h1>
-        <div className="header-nav">
-          <button className="nav-button primary" onClick={handleAddSong}>
-            Add New Song
-          </button>
-          <button className="nav-button secondary" onClick={() => navigate('/styles')}>
-            Manage Styles
-          </button>
-          <button className="nav-button logout" onClick={onLogout}>
-            Logout
-          </button>
-        </div>
-      </header>
+    <div className="home-enhanced">
+      <StudioHeader
+        stats={stats}
+        onAddSong={handleAddSong}
+        onManageStyles={() => navigate('/styles')}
+        onLogout={onLogout}
+      />
 
-      <main className="main-content">
-        <div className="hero-banner"></div>
+      <main className="home-enhanced__content">
+        <div className="home-enhanced__container">
+          <ControlBar
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            styles={styles}
+            onClearFilters={handleClearFilters}
+          />
 
-        <div className="section-header">
-          <span className="badge primary">Song Management</span>
-          <span className="badge secondary">{songs.length} tracks</span>
-        </div>
-
-        <p className="section-description">
-          Search, filter, and manage your songs. Use the controls below to refine by style or vocal gender.
-        </p>
-
-        <div className="filters-row">
-          <div className="filter-group">
-            <label>Search</label>
-            <input
-              type="text"
-              placeholder="Find by title, lyrics, or style"
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-            />
-          </div>
-
-          <div className="filter-group">
-            <label>Style</label>
-            <select
-              value={filters.style_id}
-              onChange={(e) => handleFilterChange('style_id', e.target.value)}
-            >
-              <option value="">All styles</option>
-              {styles.map((style) => (
-                <option key={style.id} value={style.id}>
-                  {style.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>Vocal Gender</label>
-            <select
-              value={filters.vocal_gender}
-              onChange={(e) => handleFilterChange('vocal_gender', e.target.value)}
-            >
-              <option value="all">All vocal genders</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div className="filter-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.all_users}
-                onChange={(e) => handleFilterChange('all_users', e.target.checked)}
-              />
-              Show all users' songs
-            </label>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="loading">Loading songs...</div>
-        ) : songs.length === 0 ? (
-          <div className="empty-state">
-            <p>No songs found. Create your first song to get started!</p>
-            <button className="btn btn-primary" onClick={handleAddSong}>
-              Add New Song
-            </button>
-          </div>
-        ) : (
-          <div className="songs-grid">
+          <SongGrid
+            songs={songs}
+            loading={loading}
+            onAddSong={handleAddSong}
+            hasFilters={hasActiveFilters}
+          >
             {songs.map((song) => (
-              <SongCard
+              <SongCardEnhanced
                 key={song.id}
                 song={song}
                 onView={handleViewSong}
@@ -234,8 +165,8 @@ function Home({ onLogout }) {
                 onDuplicate={handleDuplicateSong}
               />
             ))}
-          </div>
-        )}
+          </SongGrid>
+        </div>
       </main>
 
       {showModal && (
@@ -260,4 +191,4 @@ function Home({ onLogout }) {
   );
 }
 
-export default Home;
+export default HomeEnhanced;

@@ -16,20 +16,34 @@ def _submit_to_suno(song):
     if not suno_api_key:
         raise Exception('Suno API key is not configured. Please contact the administrator to set up SUNO_API_KEY.')
 
-    # Determine if using custom mode (has prompt) or lyrics mode
-    custom_mode = not song.prompt_to_generate or song.prompt_to_generate.strip() == ''
+    # Determine if using custom mode
+    # customMode: true means user provides style, title, and lyrics separately
+    # customMode: false means user provides only a prompt and AI generates everything
+    custom_mode = bool(song.specific_lyrics and song.specific_lyrics.strip())
 
     # Build Suno API request
     payload = {
         'customMode': custom_mode,
         'instrumental': False,
-        'prompt': song.prompt_to_generate if song.prompt_to_generate else song.specific_lyrics,
-        'model': 'chirp-v3-5',
-        'title': song.specific_title or 'Untitled Song',
-        'styleWeight': 1,
-        'vocalGender': 'f' if song.vocal_gender == 'female' else 'm',
+        'model': 'V5',
         'callBackUrl': f"{os.getenv('APP_URL', 'https://suno.aiacopilot.com')}/api/v1/webhooks/suno-callback"
     }
+
+    if custom_mode:
+        # Custom mode: provide lyrics, title, and style
+        payload['prompt'] = song.specific_lyrics
+        payload['title'] = song.specific_title or 'Untitled Song'
+    else:
+        # Simple mode: just provide a prompt
+        payload['prompt'] = song.prompt_to_generate or song.specific_title or 'Create a song'
+
+    # Add optional fields
+    if song.vocal_gender:
+        # Suno API expects 'm' or 'f', not 'male' or 'female'
+        gender_map = {'male': 'm', 'female': 'f'}
+        payload['vocalGender'] = gender_map.get(song.vocal_gender, song.vocal_gender)
+
+    payload['styleWeight'] = 1
 
     # Add style if available
     if song.style and song.style.style_prompt:
@@ -73,8 +87,13 @@ def _submit_to_suno(song):
 
         # Check for error in response body
         if result and isinstance(result, dict):
+            # Check for error code (some APIs return code instead of status)
+            if result.get('code') and result.get('code') >= 400:
+                error_msg = result.get('msg') or result.get('message') or result.get('error') or 'Unknown error from Suno API'
+                raise Exception(f'Suno API error: {error_msg}')
+
             if result.get('error') or result.get('status') == 'error':
-                error_msg = result.get('message') or result.get('error') or 'Unknown error from Suno API'
+                error_msg = result.get('message') or result.get('msg') or result.get('error') or 'Unknown error from Suno API'
                 raise Exception(f'Suno API error: {error_msg}')
 
         # Update song with Suno task ID and set status to submitted
@@ -82,20 +101,28 @@ def _submit_to_suno(song):
         task_id = None
 
         if result and isinstance(result, dict):
-            # Try different possible response structures
-            task_id = result.get('task_id') or result.get('taskId')
+            # Check if it's nested in a data object (standard Suno API response)
+            task_data = result.get('data', {})
+            if isinstance(task_data, dict):
+                task_id = task_data.get('taskId') or task_data.get('task_id')
 
-            # Also check if it's nested in a data object
+            # Also try top-level fields as fallback
             if not task_id:
-                task_data = result.get('data', {})
-                if isinstance(task_data, dict):
-                    task_id = task_data.get('task_id') or task_data.get('taskId')
+                task_id = (result.get('taskId') or result.get('task_id') or
+                          result.get('id') or result.get('ID'))
+
+            # Some APIs return data as array
+            if not task_id and isinstance(task_data, list) and len(task_data) > 0:
+                first_item = task_data[0]
+                if isinstance(first_item, dict):
+                    task_id = (first_item.get('taskId') or first_item.get('task_id') or
+                              first_item.get('id') or first_item.get('ID'))
 
         if task_id:
             song.suno_task_id = task_id
             current_app.logger.info(f"Stored Suno task_id: {task_id} for song {song.id}")
         else:
-            current_app.logger.warning(f"No task_id found in Suno API response for song {song.id}")
+            current_app.logger.warning(f"No task_id found in Suno API response for song {song.id}. Full response: {result}")
             raise Exception('Suno API did not return a task ID. The request may have failed. Please try again.')
 
         song.status = 'submitted'
@@ -193,6 +220,7 @@ def create_song():
     song = Song(
         user_id=user_id,
         specific_title=data.get('specific_title'),
+        version=data.get('version', 'v1'),
         specific_lyrics=data.get('specific_lyrics'),
         prompt_to_generate=data.get('prompt_to_generate'),
         style_id=data.get('style_id'),
@@ -259,6 +287,16 @@ def update_song(song_id):
         song.vocal_gender = data['vocal_gender']
     if 'status' in data:
         song.status = data['status']
+    if 'star_rating' in data:
+        # Validate star_rating is between 0 and 5
+        rating = data['star_rating']
+        if not isinstance(rating, int) or rating < 0 or rating > 5:
+            return jsonify({'error': 'Star rating must be between 0 and 5'}), 400
+        song.star_rating = rating
+    if 'downloaded_url_1' in data:
+        song.downloaded_url_1 = bool(data['downloaded_url_1'])
+    if 'downloaded_url_2' in data:
+        song.downloaded_url_2 = bool(data['downloaded_url_2'])
 
     try:
         db.session.commit()
@@ -343,11 +381,18 @@ def get_stats():
     # Build base query
     base_query = Song.query if show_all_users else Song.query.filter_by(user_id=user_id)
 
+    # Count completed songs that actually have audio files
+    completed_with_audio = base_query.filter(
+        Song.status == 'completed',
+        db.or_(Song.download_url_1.isnot(None), Song.download_url_2.isnot(None))
+    ).count()
+
     stats = {
         'total': base_query.count(),
         'create': base_query.filter_by(status='create').count(),
         'submitted': base_query.filter_by(status='submitted').count(),
-        'completed': base_query.filter_by(status='completed').count(),
+        'completed': completed_with_audio,
+        'failed': base_query.filter_by(status='failed').count(),
         'unspecified': base_query.filter_by(status='unspecified').count()
     }
 

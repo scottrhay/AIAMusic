@@ -50,14 +50,12 @@ class Style(db.Model):
         data = {
             'id': self.id,
             'name': self.name,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'style_prompt': self.style_prompt,
+            'created_by': self.creator.username if self.creator else None,
+            'created_by_id': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-
-        if include_details:
-            data.update({
-                'style_prompt': self.style_prompt,
-                'created_by': self.creator.username if self.creator else None
-            })
 
         return data
 
@@ -69,14 +67,18 @@ class Song(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    status = db.Column(db.Enum('create', 'submitted', 'completed', 'unspecified'), default='create', index=True)
+    status = db.Column(db.Enum('create', 'submitted', 'completed', 'failed', 'unspecified'), default='create', index=True)
     specific_title = db.Column(db.String(500))
+    version = db.Column(db.String(10), default='v1')
+    star_rating = db.Column(db.Integer, default=0, index=True)
     specific_lyrics = db.Column(db.Text)
     prompt_to_generate = db.Column(db.Text)
     style_id = db.Column(db.Integer, db.ForeignKey('styles.id', ondelete='SET NULL'))
     vocal_gender = db.Column(db.Enum('male', 'female', 'other'))
     download_url_1 = db.Column(db.String(1000))
+    downloaded_url_1 = db.Column(db.Boolean, default=False)
     download_url_2 = db.Column(db.String(1000))
+    downloaded_url_2 = db.Column(db.Boolean, default=False)
     suno_task_id = db.Column(db.String(255), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -87,11 +89,15 @@ class Song(db.Model):
             'id': self.id,
             'status': self.status,
             'specific_title': self.specific_title,
+            'version': self.version or 'v1',
+            'star_rating': self.star_rating or 0,
             'specific_lyrics': self.specific_lyrics,
             'prompt_to_generate': self.prompt_to_generate,
             'vocal_gender': self.vocal_gender,
             'download_url_1': self.download_url_1,
+            'downloaded_url_1': self.downloaded_url_1 or False,
             'download_url_2': self.download_url_2,
+            'downloaded_url_2': self.downloaded_url_2 or False,
             'suno_task_id': self.suno_task_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None

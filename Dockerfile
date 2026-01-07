@@ -10,10 +10,13 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy frontend source
 COPY frontend/ ./
+
+# Set production API URL
+ENV REACT_APP_API_URL=https://suno.aiacopilot.com/api/v1
 
 # Build React app
 RUN npm run build

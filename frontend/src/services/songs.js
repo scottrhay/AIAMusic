@@ -49,7 +49,7 @@ export const getSongStats = async (allUsers = false) => {
   return response.data;
 };
 
-export const recreateSong = async (id) => {
-  const response = await api.post(`/songs/${id}/recreate`);
+export const updateSongRating = async (id, rating) => {
+  const response = await api.put(`/songs/${id}`, { star_rating: rating });
   return response.data;
 };

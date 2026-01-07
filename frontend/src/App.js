@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
+import './theme/theme.css';
 import Login from './pages/Login';
-import Home from './pages/Home';
+import HomePremium from './pages/HomePremium';
 import ManageStyles from './pages/ManageStyles';
 import { getToken, removeToken } from './services/auth';
 
@@ -36,7 +37,7 @@ function App() {
           path="/"
           element={
             isAuthenticated ? (
-              <Home onLogout={handleLogout} />
+              <HomePremium onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" />
             )
