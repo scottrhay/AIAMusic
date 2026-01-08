@@ -10,8 +10,9 @@ SunoApp replaces Excel-based music workflows with a professional, database-drive
 - **Style Library** - Manage reusable music style templates
 - **Team Collaboration** - Multiple users working together
 - **Search & Filter** - Find songs by status, style, lyrics, or vocal gender
-- **n8n Integration** - Automatic Suno API submission and status updates
-- **Download Tracking** - Organize generated MP3 files
+- **Direct Suno API Integration** - Automatic music generation and webhook callbacks
+- **Auto-Download** - Files automatically download when ready (expire after 15 days)
+- **Star Rating System** - Rate and filter songs with 1-5 stars
 
 ## 🚀 Quick Start
 
@@ -32,18 +33,18 @@ SunoApp replaces Excel-based music workflows with a professional, database-drive
 
 ## 📋 What You Need
 
-- **VPS**: Ubuntu 24.04 (you have: Hostinger VPS)
-- **MySQL**: 8.0+ (you have it)
-- **n8n**: Running instance (you have it)
-- **Domain**: Pointing to your VPS (suno.aiacopilot.com)
+- **VPS**: Ubuntu 24.04 or similar Linux server
+- **MySQL**: 8.0+ database
+- **Suno API Key**: From Suno API service
+- **Domain**: Pointing to your VPS (optional but recommended)
 - **Time**: 30-45 minutes
 
 ## 🏗️ Architecture
 
 ```
 Users → HTTPS → Nginx → SunoApp (Flask + React) → MySQL
-                                        ↕
-                                      n8n ↔ Suno API
+                              ↕
+                         Suno API (webhooks)
 ```
 
 ## 💻 Technology Stack
@@ -52,7 +53,7 @@ Users → HTTPS → Nginx → SunoApp (Flask + React) → MySQL
 - **Frontend**: React 18
 - **Database**: MySQL 8.0
 - **Server**: Gunicorn + Nginx
-- **Automation**: n8n workflows
+- **API Integration**: Direct Suno API with webhooks
 - **Security**: JWT authentication, SSL/HTTPS
 
 ## 📁 Project Structure
@@ -103,11 +104,10 @@ SunoApp/
 - **docs/QUICK_START.md** - Fast deployment path
 - **docs/API.md** - API documentation
 - **docs/DEVELOPMENT.md** - Local development
-- **docs/n8n_workflow_updates.md** - n8n integration
 
 ## 💰 Cost
 
-**$0 per month** - Uses your existing VPS, MySQL, and n8n.
+**Minimal** - Uses your existing VPS and MySQL. Only cost is Suno API credits.
 
 ## 📜 License
 
