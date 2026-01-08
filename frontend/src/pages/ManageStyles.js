@@ -18,8 +18,8 @@ function ManageStyles({ onLogout }) {
 
   useEffect(() => {
     loadStyles();
-    // Get current user ID from localStorage - use the correct key 'sunoapp_user'
-    const user = JSON.parse(localStorage.getItem('sunoapp_user') || '{}');
+    // Get current user ID from localStorage - use the correct key 'aiaspeech_user'
+    const user = JSON.parse(localStorage.getItem('aiaspeech_user') || '{}');
     console.log('Current user from localStorage:', user);
     console.log('User ID:', user.id);
     setCurrentUserId(user.id);

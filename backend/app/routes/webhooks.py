@@ -6,12 +6,12 @@ import json
 bp = Blueprint('webhooks', __name__)
 
 
-@bp.route('/suno-callback', methods=['POST'])
-def suno_callback():
+@bp.route('/azure-speech-callback', methods=['POST'])
+def azure_speech_callback():
     """
-    Webhook endpoint for direct Suno API callbacks.
+    Webhook endpoint for Azure Speech API callbacks.
 
-    Handles multiple possible payload formats from Suno API:
+    Handles multiple possible payload formats from Azure Speech API:
 
     Format 1 (expected):
     {
@@ -36,10 +36,10 @@ def suno_callback():
     data = request.get_json()
 
     # Log the raw callback for debugging
-    current_app.logger.info(f"Suno callback received: {json.dumps(data, indent=2)}")
+    current_app.logger.info(f"Azure Speech callback received: {json.dumps(data, indent=2)}")
 
     if not data:
-        current_app.logger.error("Suno callback: No data received")
+        current_app.logger.error("Azure Speech callback: No data received")
         return jsonify({'error': 'No data received'}), 400
 
     # Extract task_id (try multiple possible field names and locations)
@@ -50,17 +50,17 @@ def suno_callback():
         task_id = data['data'].get('task_id') or data['data'].get('taskId')
 
     if not task_id:
-        current_app.logger.error(f"Suno callback: No task_id found in payload: {data}")
+        current_app.logger.error(f"Azure Speech callback: No task_id found in payload: {data}")
         return jsonify({'error': 'task_id is required'}), 400
 
-    # Find song by Suno task ID
-    song = Song.query.filter_by(suno_task_id=task_id).first()
+    # Find song by speech task ID
+    song = Song.query.filter_by(speech_task_id=task_id).first()
 
     if not song:
-        current_app.logger.error(f"Suno callback: No song found for task_id: {task_id}")
+        current_app.logger.error(f"Azure Speech callback: No song found for task_id: {task_id}")
         return jsonify({'error': f'Song not found for task_id: {task_id}'}), 404
 
-    current_app.logger.info(f"Suno callback: Found song {song.id} for task_id {task_id}")
+    current_app.logger.info(f"Azure Speech callback: Found song {song.id} for task_id {task_id}")
 
     # Check status (handle multiple possible status indicators)
     status = data.get('status', '').lower()
@@ -75,7 +75,7 @@ def suno_callback():
     # Handle failure status
     if status in ['failed', 'error', 'failure']:
         song.status = 'failed'
-        current_app.logger.error(f"Suno callback: Song {song.id} generation failed: {msg}")
+        current_app.logger.error(f"Azure Speech callback: Song {song.id} generation failed: {msg}")
         try:
             db.session.commit()
             return jsonify({
@@ -92,7 +92,7 @@ def suno_callback():
     # If data is a dict with nested songs/clips/data array
     if isinstance(audio_data, dict):
         audio_data = (
-            audio_data.get('data') or  # Suno API format: data.data.data[]
+            audio_data.get('data') or  # API format: data.data.data[]
             audio_data.get('songs') or
             audio_data.get('clips') or
             audio_data.get('results') or
@@ -103,7 +103,7 @@ def suno_callback():
     if not isinstance(audio_data, list):
         audio_data = [audio_data] if audio_data else []
 
-    current_app.logger.info(f"Suno callback: Found {len(audio_data)} audio items")
+    current_app.logger.info(f"Azure Speech callback: Found {len(audio_data)} audio items")
 
     if is_success and audio_data:
         song.status = 'completed'
@@ -117,7 +117,7 @@ def suno_callback():
                 item.get('url') or
                 item.get('audio')
             )
-            current_app.logger.info(f"Suno callback: download_url_1 = {song.download_url_1}")
+            current_app.logger.info(f"Azure Speech callback: download_url_1 = {song.download_url_1}")
 
         if len(audio_data) > 1:
             item = audio_data[1]
@@ -127,22 +127,22 @@ def suno_callback():
                 item.get('url') or
                 item.get('audio')
             )
-            current_app.logger.info(f"Suno callback: download_url_2 = {song.download_url_2}")
+            current_app.logger.info(f"Azure Speech callback: download_url_2 = {song.download_url_2}")
 
         try:
             db.session.commit()
-            current_app.logger.info(f"Suno callback: Song {song.id} updated successfully")
+            current_app.logger.info(f"Azure Speech callback: Song {song.id} updated successfully")
             return jsonify({
                 'message': 'Song updated successfully',
                 'song': song.to_dict(include_user=True, include_style=True)
             }), 200
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Suno callback: Database error: {str(e)}")
+            current_app.logger.error(f"Azure Speech callback: Database error: {str(e)}")
             return jsonify({'error': str(e)}), 500
     else:
         # Log but still return 200 to acknowledge receipt
-        current_app.logger.warning(f"Suno callback: Unexpected payload for song {song.id}: is_success={is_success}, audio_data_len={len(audio_data)}")
+        current_app.logger.warning(f"Azure Speech callback: Unexpected payload for song {song.id}: is_success={is_success}, audio_data_len={len(audio_data)}")
         return jsonify({
             'message': 'Callback received but no audio data found',
             'status_received': status,

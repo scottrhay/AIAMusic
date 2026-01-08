@@ -321,9 +321,9 @@ npm run build
 
 ### Docker Deployment
 ```bash
-docker build -t sunoapp:latest .
-docker tag sunoapp:latest your-registry/sunoapp:latest
-docker push your-registry/sunoapp:latest
+docker build -t aiaspeech:latest .
+docker tag aiaspeech:latest your-registry/aiaspeech:latest
+docker push your-registry/aiaspeech:latest
 ```
 
 ### Server Update

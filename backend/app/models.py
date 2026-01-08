@@ -79,7 +79,7 @@ class Song(db.Model):
     downloaded_url_1 = db.Column(db.Boolean, default=False)
     download_url_2 = db.Column(db.String(1000))
     downloaded_url_2 = db.Column(db.Boolean, default=False)
-    suno_task_id = db.Column(db.String(255), index=True)
+    speech_task_id = db.Column(db.String(255), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -98,7 +98,7 @@ class Song(db.Model):
             'downloaded_url_1': self.downloaded_url_1 or False,
             'download_url_2': self.download_url_2,
             'downloaded_url_2': self.downloaded_url_2 or False,
-            'suno_task_id': self.suno_task_id,
+            'speech_task_id': self.speech_task_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

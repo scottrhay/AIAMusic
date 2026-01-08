@@ -43,6 +43,6 @@ def create_app(config_name='default'):
     # Health check endpoint
     @app.route('/health')
     def health_check():
-        return {'status': 'healthy', 'service': 'SunoApp API'}, 200
+        return {'status': 'healthy', 'service': 'AIASpeech API'}, 200
 
     return app

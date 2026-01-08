@@ -1,18 +1,17 @@
-# SunoApp - Music Creation Management Platform
+# AIASpeech - Speech Generation Management Platform
 
-A modern web-based platform for managing music creation with Suno API integration.
+A modern web-based platform for managing speech generation with Azure Speech API integration.
 
-## 🎵 What is SunoApp?
+## 🎵 What is AIASpeech?
 
-SunoApp replaces Excel-based music workflows with a professional, database-driven web application. Built for teams creating music with Suno API, it provides:
+AIASpeech replaces Excel-based speech workflows with a professional, database-driven web application. Built for teams creating audio content with Azure Speech API, it provides:
 
-- **Song Management** - Track songs through creation lifecycle (Create → Submitted → Completed)
-- **Style Library** - Manage reusable music style templates
+- **Audio Management** - Track audio through creation lifecycle (Create → Submitted → Completed)
+- **Style Library** - Manage reusable speech style templates
 - **Team Collaboration** - Multiple users working together
-- **Search & Filter** - Find songs by status, style, lyrics, or vocal gender
-- **Direct Suno API Integration** - Automatic music generation and webhook callbacks
-- **Auto-Download** - Files automatically download when ready (expire after 15 days)
-- **Star Rating System** - Rate and filter songs with 1-5 stars
+- **Search & Filter** - Find audio by status, style, text, or vocal gender
+- **API Integration** - Automatic Azure Speech API submission and status updates
+- **Download Tracking** - Organize generated audio files
 
 ## 🚀 Quick Start
 
@@ -33,18 +32,18 @@ SunoApp replaces Excel-based music workflows with a professional, database-drive
 
 ## 📋 What You Need
 
-- **VPS**: Ubuntu 24.04 or similar Linux server
-- **MySQL**: 8.0+ database
-- **Suno API Key**: From Suno API service
-- **Domain**: Pointing to your VPS (optional but recommended)
+- **VPS**: Ubuntu 24.04 (you have: Hostinger VPS)
+- **MySQL**: 8.0+ (you have it)
+- **Domain**: Pointing to your VPS (speech.aiacopilot.com)
+- **Azure Speech API**: Azure Cognitive Services subscription
 - **Time**: 30-45 minutes
 
 ## 🏗️ Architecture
 
 ```
-Users → HTTPS → Nginx → SunoApp (Flask + React) → MySQL
-                              ↕
-                         Suno API (webhooks)
+Users → HTTPS → Nginx → AIASpeech (Flask + React) → MySQL
+                                        ↕
+                                  Azure Speech API
 ```
 
 ## 💻 Technology Stack
@@ -53,13 +52,13 @@ Users → HTTPS → Nginx → SunoApp (Flask + React) → MySQL
 - **Frontend**: React 18
 - **Database**: MySQL 8.0
 - **Server**: Gunicorn + Nginx
-- **API Integration**: Direct Suno API with webhooks
+- **API**: Azure Cognitive Services Speech
 - **Security**: JWT authentication, SSL/HTTPS
 
 ## 📁 Project Structure
 
 ```
-SunoApp/
+AIASpeech/
 ├── backend/              # Flask API
 ├── frontend/             # React UI
 ├── database/             # SQL schema
@@ -83,7 +82,8 @@ SunoApp/
    - `SECRET_KEY` - Generate with: `openssl rand -hex 32`
    - `JWT_SECRET_KEY` - Generate with: `openssl rand -hex 32`
    - `DB_PASSWORD` - Your MySQL password
-   - `SUNO_API_KEY` - Your Suno API key
+   - `AZURE_SPEECH_KEY` - Your Azure Speech API key
+   - `AZURE_SPEECH_REGION` - Your Azure region
    - Other configuration values
 
 3. The `.env` file is already in `.gitignore` and will **not** be committed to GitHub
@@ -107,7 +107,7 @@ SunoApp/
 
 ## 💰 Cost
 
-**Minimal** - Uses your existing VPS and MySQL. Only cost is Suno API credits.
+**$0 per month** - Uses your existing VPS and MySQL. Azure Speech API costs based on usage.
 
 ## 📜 License
 
@@ -120,4 +120,4 @@ Private project for AIA Copilot team use.
 Docker (recommended): Open `DOCKER_DEPLOYMENT_CHECKLIST.md`
 Direct install: Open `DEPLOYMENT_CHECKLIST.md`
 
-Let's create some music! 🎵🚀
+Let's create some audio! 🎵🚀

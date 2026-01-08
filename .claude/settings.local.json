@@ -16,7 +16,13 @@
       "Bash(npm start)",
       "Bash(docker save:*)",
       "Bash(gzip:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npm install)",
+      "Bash(cat:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rebase:*)",
+      "Bash(GIT_EDITOR=true git rebase:*)"
     ]
   }
 }

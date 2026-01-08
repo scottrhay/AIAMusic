@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  sunoapp:
+  aiaspeech:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: sunoapp
+    container_name: aiaspeech
     restart: unless-stopped
     ports:
       - "5000:5000"
@@ -15,23 +15,19 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY}
 
-      # Database Configuration (connects to existing MySQL container)
-      - DB_HOST=mysql
+      # Database Configuration (connects to host MySQL)
+      - DB_HOST=host.docker.internal
       - DB_PORT=3306
-      - DB_NAME=${DB_NAME:-sunoapp_db}
-      - DB_USER=${DB_USER:-sunoapp_user}
+      - DB_NAME=${DB_NAME:-aiaspeech_db}
+      - DB_USER=${DB_USER:-aiaspeech_user}
       - DB_PASSWORD=${DB_PASSWORD}
-
-      # Suno API Configuration
-      - SUNO_API_KEY=${SUNO_API_KEY}
-      - SUNO_API_URL=${SUNO_API_URL:-https://api.sunoapi.com}
 
       # JWT Configuration
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - JWT_ACCESS_TOKEN_EXPIRES=86400
 
       # CORS Configuration
-      - CORS_ORIGINS=https://suno.aiacopilot.com,http://localhost:3000
+      - CORS_ORIGINS=https://speech.aiacopilot.com,http://localhost:3000
 
       # API Settings
       - API_PREFIX=/api/v1
@@ -41,7 +37,11 @@ services:
       - ./logs:/app/logs
 
     networks:
-      - root_default
+      - aiaspeech-network
+
+    # Connect to host MySQL
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
@@ -63,34 +63,31 @@ services:
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
-    container_name: sunoapp-nginx
+    container_name: aiaspeech-nginx
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./frontend/build:/usr/share/nginx/html:ro
       - ./logs/nginx:/var/log/nginx
+      # SSL certificates from Let's Encrypt on host
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
-      - sunoapp
+      - aiaspeech
     networks:
-      - root_default
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=root_default"
-      - "traefik.http.routers.sunoapp.rule=Host(`suno.aiacopilot.com`)"
-      - "traefik.http.routers.sunoapp.entrypoints=web,websecure"
-      - "traefik.http.routers.sunoapp.tls=true"
-      - "traefik.http.routers.sunoapp.tls.certresolver=mytlschallenge"
-      - "traefik.http.services.sunoapp.loadbalancer.server.port=80"
+      - aiaspeech-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
 networks:
-  root_default:
-    external: true
+  aiaspeech-network:
+    driver: bridge
 
-# Note: This compose file connects to the existing root_default network
-# which contains your MySQL and Traefik containers
+# Note: MySQL is NOT in this compose file - it uses your existing MySQL on the host
+# n8n is also NOT in this compose file - it uses your existing n8n instance

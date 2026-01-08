@@ -1,7 +1,7 @@
 -- Migration: Add star rating to songs
 -- Date: 2026-01-01
 
-USE sunoapp_db;
+USE aiaspeech_db;
 
 -- Add star_rating column to songs table
 ALTER TABLE songs ADD COLUMN star_rating INT DEFAULT 0 AFTER version;

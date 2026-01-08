@@ -1,7 +1,7 @@
 import api from './api';
 
-const TOKEN_KEY = 'sunoapp_token';
-const USER_KEY = 'sunoapp_user';
+const TOKEN_KEY = 'aiaspeech_token';
+const USER_KEY = 'aiaspeech_user';
 
 export const login = async (username, password) => {
   const response = await api.post('/auth/login', { username, password });

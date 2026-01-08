@@ -1,4 +1,4 @@
-# Gunicorn configuration file for SunoApp (Docker version)
+# Gunicorn configuration file for AIASpeech (Docker version)
 
 import multiprocessing
 import os
@@ -21,7 +21,7 @@ loglevel = 'info'
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # Process naming
-proc_name = 'sunoapp'
+proc_name = 'aiaspeech'
 
 # Server mechanics
 daemon = False

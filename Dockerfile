@@ -1,4 +1,4 @@
-# SunoApp Dockerfile
+# AIASpeech Dockerfile
 # Multi-stage build for optimized production image
 
 # Stage 1: Build React frontend
@@ -16,7 +16,7 @@ RUN npm install --only=production
 COPY frontend/ ./
 
 # Set production API URL
-ENV REACT_APP_API_URL=https://suno.aiacopilot.com/api/v1
+ENV REACT_APP_API_URL=https://speech.aiacopilot.com/api/v1
 
 # Build React app
 RUN npm run build
@@ -47,11 +47,11 @@ COPY backend/ ./
 COPY --from=frontend-builder /app/frontend/build /app/static
 
 # Create non-root user
-RUN useradd -m -u 1000 sunoapp && \
-    chown -R sunoapp:sunoapp /app
+RUN useradd -m -u 1000 aiaspeech && \
+    chown -R aiaspeech:aiaspeech /app
 
 # Switch to non-root user
-USER sunoapp
+USER aiaspeech
 
 # Expose port
 EXPOSE 5000

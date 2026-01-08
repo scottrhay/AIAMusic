@@ -107,7 +107,7 @@ function StyleModal({ style, onClose }) {
               onChange={handleChange}
               rows="8"
               maxLength="1000"
-              placeholder="Enter the full Suno prompt for this style. Example:&#10;&#10;EDM pop with Jewish dance influence and futuristic TRON-style synthwave elements, upbeat festival rhythm with punchy 4-on-the-floor kick, energetic and inspiring, melodic male pop vocal with catchy chorus, bright supersaws, neon plucks, glassy arps, deep cyber bass"
+              placeholder="Enter the full style prompt. Example:&#10;&#10;EDM pop with Jewish dance influence and futuristic TRON-style synthwave elements, upbeat festival rhythm with punchy 4-on-the-floor kick, energetic and inspiring, melodic male pop vocal with catchy chorus, bright supersaws, neon plucks, glassy arps, deep cyber bass"
             />
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
               {formData.style_prompt.length}/1000 characters

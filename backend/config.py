@@ -15,8 +15,8 @@ class Config:
     # Database
     DB_HOST = os.getenv('DB_HOST', 'localhost')
     DB_PORT = os.getenv('DB_PORT', '3306')
-    DB_NAME = os.getenv('DB_NAME', 'sunoapp_db')
-    DB_USER = os.getenv('DB_USER', 'sunoapp_user')
+    DB_NAME = os.getenv('DB_NAME', 'aiaspeech_db')
+    DB_USER = os.getenv('DB_USER', 'aiaspeech_user')
     DB_PASSWORD = os.getenv('DB_PASSWORD', '')
 
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"

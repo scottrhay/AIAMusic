@@ -8,25 +8,26 @@ import os
 bp = Blueprint('songs', __name__)
 
 
-def _submit_to_suno(song):
-    """Submit song to Suno API for generation."""
-    suno_api_key = os.getenv('SUNO_API_KEY')
-    suno_api_url = os.getenv('SUNO_API_URL', 'https://api.sunoapi.org/api/v1/generate')
+def _submit_to_azure_speech(song):
+    """Submit song to Azure Speech API for generation."""
+    azure_speech_key = os.getenv('AZURE_SPEECH_KEY')
+    azure_speech_region = os.getenv('AZURE_SPEECH_REGION')
+    azure_speech_endpoint = os.getenv('AZURE_SPEECH_ENDPOINT', f'https://{azure_speech_region}.api.cognitive.microsoft.com')
 
-    if not suno_api_key:
-        raise Exception('Suno API key is not configured. Please contact the administrator to set up SUNO_API_KEY.')
+    if not azure_speech_key:
+        raise Exception('Azure Speech API key is not configured. Please contact the administrator to set up AZURE_SPEECH_KEY.')
 
     # Determine if using custom mode
     # customMode: true means user provides style, title, and lyrics separately
     # customMode: false means user provides only a prompt and AI generates everything
     custom_mode = bool(song.specific_lyrics and song.specific_lyrics.strip())
 
-    # Build Suno API request
+    # Build Azure Speech API request
     payload = {
         'customMode': custom_mode,
         'instrumental': False,
         'model': 'V5',
-        'callBackUrl': f"{os.getenv('APP_URL', 'https://suno.aiacopilot.com')}/api/v1/webhooks/suno-callback"
+        'callBackUrl': f"{os.getenv('APP_URL', 'https://speech.aiacopilot.com')}/api/v1/webhooks/azure-speech-callback"
     }
 
     if custom_mode:
@@ -39,7 +40,7 @@ def _submit_to_suno(song):
 
     # Add optional fields
     if song.vocal_gender:
-        # Suno API expects 'm' or 'f', not 'male' or 'female'
+        # Azure Speech API expects 'm' or 'f', not 'male' or 'female'
         gender_map = {'male': 'm', 'female': 'f'}
         payload['vocalGender'] = gender_map.get(song.vocal_gender, song.vocal_gender)
 
@@ -52,19 +53,19 @@ def _submit_to_suno(song):
         payload['style'] = 'pop'
 
     headers = {
-        'Authorization': f'Bearer {suno_api_key}',
+        'Ocp-Apim-Subscription-Key': azure_speech_key,
         'Content-Type': 'application/json'
     }
 
     try:
-        response = requests.post(suno_api_url, json=payload, headers=headers, timeout=10)
+        response = requests.post(azure_speech_endpoint, json=payload, headers=headers, timeout=10)
 
         # Log the status code and response for debugging
-        current_app.logger.info(f"Suno API Status: {response.status_code}")
+        current_app.logger.info(f"Azure Speech API Status: {response.status_code}")
 
         # Handle specific HTTP error codes with user-friendly messages
         if response.status_code == 401:
-            raise Exception('Suno API authentication failed. The API key may be invalid or expired. Please contact the administrator.')
+            raise Exception('Azure Speech API authentication failed. The API key may be invalid or expired. Please contact the administrator.')
         elif response.status_code == 402 or response.status_code == 403:
             # Payment required or forbidden - likely out of credits
             try:
@@ -72,36 +73,36 @@ def _submit_to_suno(song):
                 error_msg = error_data.get('message', error_data.get('error', ''))
             except:
                 error_msg = ''
-            raise Exception(f'Suno API access denied. You may be out of credits or your subscription has expired. {error_msg}'.strip())
+            raise Exception(f'Azure Speech API access denied. You may be out of credits or your subscription has expired. {error_msg}'.strip())
         elif response.status_code == 429:
-            raise Exception('Suno API rate limit exceeded. Please wait a few minutes and try again.')
+            raise Exception('Azure Speech API rate limit exceeded. Please wait a few minutes and try again.')
         elif response.status_code >= 500:
-            raise Exception('Suno API is currently unavailable. The service may be down. Please try again later.')
+            raise Exception('Azure Speech API is currently unavailable. The service may be down. Please try again later.')
 
         response.raise_for_status()
 
         result = response.json()
 
         # Log the full response for debugging
-        current_app.logger.info(f"Suno API Response: {result}")
+        current_app.logger.info(f"Azure Speech API Response: {result}")
 
         # Check for error in response body
         if result and isinstance(result, dict):
             # Check for error code (some APIs return code instead of status)
             if result.get('code') and result.get('code') >= 400:
-                error_msg = result.get('msg') or result.get('message') or result.get('error') or 'Unknown error from Suno API'
-                raise Exception(f'Suno API error: {error_msg}')
+                error_msg = result.get('msg') or result.get('message') or result.get('error') or 'Unknown error from Azure Speech API'
+                raise Exception(f'Azure Speech API error: {error_msg}')
 
             if result.get('error') or result.get('status') == 'error':
-                error_msg = result.get('message') or result.get('msg') or result.get('error') or 'Unknown error from Suno API'
-                raise Exception(f'Suno API error: {error_msg}')
+                error_msg = result.get('message') or result.get('msg') or result.get('error') or 'Unknown error from Azure Speech API'
+                raise Exception(f'Azure Speech API error: {error_msg}')
 
-        # Update song with Suno task ID and set status to submitted
-        # The Suno API should return a task_id that we need to store
+        # Update song with task ID and set status to submitted
+        # The API should return a task_id that we need to store
         task_id = None
 
         if result and isinstance(result, dict):
-            # Check if it's nested in a data object (standard Suno API response)
+            # Check if it's nested in a data object (standard API response)
             task_data = result.get('data', {})
             if isinstance(task_data, dict):
                 task_id = task_data.get('taskId') or task_data.get('task_id')
@@ -119,11 +120,11 @@ def _submit_to_suno(song):
                               first_item.get('id') or first_item.get('ID'))
 
         if task_id:
-            song.suno_task_id = task_id
-            current_app.logger.info(f"Stored Suno task_id: {task_id} for song {song.id}")
+            song.speech_task_id = task_id
+            current_app.logger.info(f"Stored speech task_id: {task_id} for song {song.id}")
         else:
-            current_app.logger.warning(f"No task_id found in Suno API response for song {song.id}. Full response: {result}")
-            raise Exception('Suno API did not return a task ID. The request may have failed. Please try again.')
+            current_app.logger.warning(f"No task_id found in Azure Speech API response for song {song.id}. Full response: {result}")
+            raise Exception('Azure Speech API did not return a task ID. The request may have failed. Please try again.')
 
         song.status = 'submitted'
         db.session.commit()
@@ -131,13 +132,13 @@ def _submit_to_suno(song):
         return result
 
     except requests.exceptions.Timeout:
-        raise Exception('Suno API request timed out. The service may be slow or unavailable. Please try again.')
+        raise Exception('Azure Speech API request timed out. The service may be slow or unavailable. Please try again.')
     except requests.exceptions.ConnectionError:
-        raise Exception('Cannot connect to Suno API. Please check your internet connection or try again later.')
+        raise Exception('Cannot connect to Azure Speech API. Please check your internet connection or try again later.')
     except requests.exceptions.RequestException as e:
         # Catch any other requests exceptions
-        current_app.logger.error(f"Suno API request error: {str(e)}")
-        raise Exception(f'Failed to connect to Suno API: {str(e)}')
+        current_app.logger.error(f"Azure Speech API request error: {str(e)}")
+        raise Exception(f'Failed to connect to Azure Speech API: {str(e)}')
 
 
 @bp.route('/', methods=['GET'])
@@ -232,16 +233,16 @@ def create_song():
         db.session.add(song)
         db.session.commit()
 
-        # Submit to Suno API directly if song status is 'create'
+        # Submit to Azure Speech API directly if song status is 'create'
         if song.status == 'create':
             try:
-                _submit_to_suno(song)
-            except Exception as suno_error:
+                _submit_to_azure_speech(song)
+            except Exception as api_error:
                 # Log the error
-                current_app.logger.error(f"Failed to submit to Suno: {suno_error}")
+                current_app.logger.error(f"Failed to submit to Azure Speech: {api_error}")
                 # Return the error to the user with a helpful message
                 db.session.rollback()
-                return jsonify({'error': str(suno_error)}), 500
+                return jsonify({'error': str(api_error)}), 500
 
         return jsonify({
             'message': 'Song submitted for generation' if song.status == 'submitted' else 'Song created successfully',
@@ -324,7 +325,7 @@ def recreate_song(song_id):
         return jsonify({'error': 'Unauthorized to recreate this song'}), 403
 
     try:
-        # Reset download URLs and submit to Suno
+        # Reset download URLs and submit to Azure Speech
         song.download_url_1 = None
         song.download_url_2 = None
         song.status = 'create'
@@ -334,8 +335,8 @@ def recreate_song(song_id):
 
         db.session.commit()
 
-        # Submit to Suno API
-        _submit_to_suno(song)
+        # Submit to Azure Speech API
+        _submit_to_azure_speech(song)
 
         return jsonify({
             'message': 'Song submitted for regeneration',

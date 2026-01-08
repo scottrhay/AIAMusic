@@ -268,7 +268,7 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
               </audio>
               <button
                 className="download-btn-compact download-btn-primary"
-                title="Download Track 1 - Suno files expire after 15 days!"
+                title="Download Track 1 - Audio files expire after 15 days!"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDownload(
@@ -298,7 +298,7 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
               </audio>
               <button
                 className="download-btn-compact download-btn-primary"
-                title="Download Track 2 - Suno files expire after 15 days!"
+                title="Download Track 2 - Audio files expire after 15 days!"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDownload(
@@ -325,7 +325,7 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
                 <path d="M10 6V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="10" cy="14" r="1" fill="currentColor"/>
               </svg>
-              <span>Suno files expire after 15 days - download to save!</span>
+              <span>Audio files expire after 15 days - download to save!</span>
             </div>
           )}
         </div>

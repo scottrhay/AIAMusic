@@ -1,7 +1,7 @@
 -- Migration: Add download tracking to songs
 -- Date: 2026-01-02
 
-USE sunoapp_db;
+USE aiaspeech_db;
 
 -- Add columns to track if files have been auto-downloaded
 ALTER TABLE songs ADD COLUMN downloaded_url_1 BOOLEAN DEFAULT FALSE AFTER download_url_1;
