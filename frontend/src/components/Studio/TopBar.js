@@ -1,7 +1,7 @@
 import React from 'react';
 import './TopBar.css';
 
-function TopBar({ onAddSong, onManageStyles, onLogout, primaryButtonText = "New Song", secondaryButtonText = "Styles", showPrimaryIcon = true, showSecondaryIcon = false, primaryIconType = "plus", secondaryIconType = "none" }) {
+function TopBar({ onAddSong, onManageStyles, onLogout, primaryButtonText = "+ New Clip", secondaryButtonText = "Voices", showPrimaryIcon = true, showSecondaryIcon = false, primaryIconType = "plus", secondaryIconType = "none" }) {
 
   const renderPrimaryIcon = () => {
     if (!showPrimaryIcon) return null;
@@ -40,7 +40,7 @@ function TopBar({ onAddSong, onManageStyles, onLogout, primaryButtonText = "New 
     <header className="top-bar">
       <div className="top-bar__container">
         <div className="top-bar__left">
-          <h1 className="top-bar__title">Hay Music Studio</h1>
+          <h1 className="top-bar__title">Hay Voice Labs</h1>
         </div>
 
         <div className="top-bar__actions">

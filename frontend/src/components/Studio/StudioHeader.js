@@ -24,13 +24,13 @@ function StudioHeader({ stats, onAddSong, onManageStyles, onLogout }) {
         {/* Left: Brand and stats */}
         <div className="studio-header__left">
           <h1 className="studio-header__title">
-            Hay Music Studio
+            Hay Voice Labs
           </h1>
 
           <div className="studio-header__stats">
             <div className="stat-item">
               <span className="stat-value">{totalCount}</span>
-              <span className="stat-label">Tracks</span>
+              <span className="stat-label">Clips</span>
             </div>
             <div className="stat-divider" aria-hidden="true"></div>
             <div className="stat-item">
@@ -57,23 +57,23 @@ function StudioHeader({ stats, onAddSong, onManageStyles, onLogout }) {
           <button
             className="studio-btn studio-btn--primary"
             onClick={onAddSong}
-            aria-label="Add new song"
+            aria-label="Add new voice clip"
           >
             <svg className="studio-btn__icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span>New Song</span>
+            <span>New Clip</span>
           </button>
 
           <button
             className="studio-btn studio-btn--secondary"
             onClick={onManageStyles}
-            aria-label="Manage styles"
+            aria-label="Manage voices"
           >
             <svg className="studio-btn__icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10 3L12 7H16L13 10L14 14L10 11L6 14L7 10L4 7H8L10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span>Styles</span>
+            <span>Voices</span>
           </button>
 
           <button

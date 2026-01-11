@@ -11,7 +11,7 @@ function EmptyState({ onAddSong, hasFilters }) {
             <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <h3 className="empty-state__title">No songs match your filters</h3>
+        <h3 className="empty-state__title">No voice clips match your filters</h3>
         <p className="empty-state__description">
           Try adjusting your search or filters to find what you're looking for.
         </p>
@@ -23,20 +23,21 @@ function EmptyState({ onAddSong, hasFilters }) {
     <div className="empty-state">
       <div className="empty-state__icon">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 18V5L21 3V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
-          <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
+          <path d="M12 1C10.34 1 9 2.34 9 4V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V4C15 2.34 13.66 1 12 1Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M19 10V12C19 15.87 15.87 19 12 19C8.13 19 5 15.87 5 12V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 19V23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8 23H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <h3 className="empty-state__title">Create your first song</h3>
+      <h3 className="empty-state__title">Create your first voice clip</h3>
       <p className="empty-state__description">
-        Get started by creating a new song. Add your lyrics, choose a style, and let the music begin!
+        Get started by creating a new voice clip. Add your text, choose a voice, and let's start creating!
       </p>
       <button className="empty-state__cta" onClick={onAddSong}>
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span>Create New Song</span>
+        <span>Create New Voice Clip</span>
       </button>
     </div>
   );

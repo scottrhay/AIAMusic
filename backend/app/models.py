@@ -10,8 +10,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False, index=True)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)  # Nullable for OAuth users
     is_active = db.Column(db.Boolean, default=True)
+    # OAuth fields
+    oauth_provider = db.Column(db.String(50))  # 'microsoft', 'google', etc.
+    oauth_id = db.Column(db.String(255), index=True)  # Provider's user ID
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -75,6 +78,7 @@ class Song(db.Model):
     prompt_to_generate = db.Column(db.Text)
     style_id = db.Column(db.Integer, db.ForeignKey('styles.id', ondelete='SET NULL'))
     vocal_gender = db.Column(db.Enum('male', 'female', 'other'))
+    voice_name = db.Column(db.String(255))  # Azure Speech voice name
     download_url_1 = db.Column(db.String(1000))
     downloaded_url_1 = db.Column(db.Boolean, default=False)
     download_url_2 = db.Column(db.String(1000))
@@ -94,6 +98,7 @@ class Song(db.Model):
             'specific_lyrics': self.specific_lyrics,
             'prompt_to_generate': self.prompt_to_generate,
             'vocal_gender': self.vocal_gender,
+            'voice_name': self.voice_name,
             'download_url_1': self.download_url_1,
             'downloaded_url_1': self.downloaded_url_1 or False,
             'download_url_2': self.download_url_2,

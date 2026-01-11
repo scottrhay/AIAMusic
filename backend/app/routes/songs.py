@@ -8,137 +8,86 @@ import os
 bp = Blueprint('songs', __name__)
 
 
-def _submit_to_azure_speech(song):
-    """Submit song to Azure Speech API for generation."""
+def _synthesize_voice_clip(song):
+    """Synthesize voice clip using Azure TTS API."""
     azure_speech_key = os.getenv('AZURE_SPEECH_KEY')
-    azure_speech_region = os.getenv('AZURE_SPEECH_REGION')
-    azure_speech_endpoint = os.getenv('AZURE_SPEECH_ENDPOINT', f'https://{azure_speech_region}.api.cognitive.microsoft.com')
+    azure_speech_region = os.getenv('AZURE_SPEECH_REGION', 'eastus2')
 
     if not azure_speech_key:
-        raise Exception('Azure Speech API key is not configured. Please contact the administrator to set up AZURE_SPEECH_KEY.')
+        raise Exception('Azure Speech API key is not configured. Please contact the administrator.')
 
-    # Determine if using custom mode
-    # customMode: true means user provides style, title, and lyrics separately
-    # customMode: false means user provides only a prompt and AI generates everything
-    custom_mode = bool(song.specific_lyrics and song.specific_lyrics.strip())
+    # Get text and voice name
+    text = song.specific_lyrics
+    if not text or not text.strip():
+        raise Exception('Speaker text is required for voice clip synthesis.')
 
-    # Build Azure Speech API request
-    payload = {
-        'customMode': custom_mode,
-        'instrumental': False,
-        'model': 'V5',
-        'callBackUrl': f"{os.getenv('APP_URL', 'https://speech.aiacopilot.com')}/api/v1/webhooks/azure-speech-callback"
-    }
+    voice_name = song.voice_name or 'en-US-AndrewMultilingualNeural'
 
-    if custom_mode:
-        # Custom mode: provide lyrics, title, and style
-        payload['prompt'] = song.specific_lyrics
-        payload['title'] = song.specific_title or 'Untitled Song'
-    else:
-        # Simple mode: just provide a prompt
-        payload['prompt'] = song.prompt_to_generate or song.specific_title or 'Create a song'
+    # Azure TTS endpoint
+    tts_endpoint = f'https://{azure_speech_region}.tts.speech.microsoft.com/cognitiveservices/v1'
 
-    # Add optional fields
-    if song.vocal_gender:
-        # Azure Speech API expects 'm' or 'f', not 'male' or 'female'
-        gender_map = {'male': 'm', 'female': 'f'}
-        payload['vocalGender'] = gender_map.get(song.vocal_gender, song.vocal_gender)
-
-    payload['styleWeight'] = 1
-
-    # Add style if available
-    if song.style and song.style.style_prompt:
-        payload['style'] = song.style.style_prompt
-    else:
-        payload['style'] = 'pop'
+    # Build SSML
+    ssml = f'''<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+        <voice name='{voice_name}'>
+            {text}
+        </voice>
+    </speak>'''
 
     headers = {
         'Ocp-Apim-Subscription-Key': azure_speech_key,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
     }
 
     try:
-        response = requests.post(azure_speech_endpoint, json=payload, headers=headers, timeout=10)
+        current_app.logger.info(f"Synthesizing voice clip for song {song.id} with voice {voice_name}")
+        response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=60)
 
-        # Log the status code and response for debugging
-        current_app.logger.info(f"Azure Speech API Status: {response.status_code}")
+        # Log the status code for debugging
+        current_app.logger.info(f"Azure TTS API Status: {response.status_code}")
 
-        # Handle specific HTTP error codes with user-friendly messages
+        # Handle specific HTTP error codes
         if response.status_code == 401:
-            raise Exception('Azure Speech API authentication failed. The API key may be invalid or expired. Please contact the administrator.')
-        elif response.status_code == 402 or response.status_code == 403:
-            # Payment required or forbidden - likely out of credits
-            try:
-                error_data = response.json()
-                error_msg = error_data.get('message', error_data.get('error', ''))
-            except:
-                error_msg = ''
-            raise Exception(f'Azure Speech API access denied. You may be out of credits or your subscription has expired. {error_msg}'.strip())
+            raise Exception('Azure Speech API authentication failed.')
+        elif response.status_code == 403:
+            raise Exception('Azure Speech API access denied.')
         elif response.status_code == 429:
-            raise Exception('Azure Speech API rate limit exceeded. Please wait a few minutes and try again.')
+            raise Exception('Rate limit exceeded. Please try again later.')
         elif response.status_code >= 500:
-            raise Exception('Azure Speech API is currently unavailable. The service may be down. Please try again later.')
+            raise Exception('Azure Speech API is currently unavailable.')
 
         response.raise_for_status()
 
-        result = response.json()
+        # Save audio to a file
+        import uuid
+        from pathlib import Path
 
-        # Log the full response for debugging
-        current_app.logger.info(f"Azure Speech API Response: {result}")
+        # Create audio directory if it doesn't exist
+        audio_dir = Path('/app/static/audio')
+        audio_dir.mkdir(parents=True, exist_ok=True)
 
-        # Check for error in response body
-        if result and isinstance(result, dict):
-            # Check for error code (some APIs return code instead of status)
-            if result.get('code') and result.get('code') >= 400:
-                error_msg = result.get('msg') or result.get('message') or result.get('error') or 'Unknown error from Azure Speech API'
-                raise Exception(f'Azure Speech API error: {error_msg}')
+        # Generate unique filename
+        filename = f"{song.id}_{uuid.uuid4().hex[:8]}.mp3"
+        filepath = audio_dir / filename
 
-            if result.get('error') or result.get('status') == 'error':
-                error_msg = result.get('message') or result.get('msg') or result.get('error') or 'Unknown error from Azure Speech API'
-                raise Exception(f'Azure Speech API error: {error_msg}')
+        # Write audio file
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
 
-        # Update song with task ID and set status to submitted
-        # The API should return a task_id that we need to store
-        task_id = None
-
-        if result and isinstance(result, dict):
-            # Check if it's nested in a data object (standard API response)
-            task_data = result.get('data', {})
-            if isinstance(task_data, dict):
-                task_id = task_data.get('taskId') or task_data.get('task_id')
-
-            # Also try top-level fields as fallback
-            if not task_id:
-                task_id = (result.get('taskId') or result.get('task_id') or
-                          result.get('id') or result.get('ID'))
-
-            # Some APIs return data as array
-            if not task_id and isinstance(task_data, list) and len(task_data) > 0:
-                first_item = task_data[0]
-                if isinstance(first_item, dict):
-                    task_id = (first_item.get('taskId') or first_item.get('task_id') or
-                              first_item.get('id') or first_item.get('ID'))
-
-        if task_id:
-            song.speech_task_id = task_id
-            current_app.logger.info(f"Stored speech task_id: {task_id} for song {song.id}")
-        else:
-            current_app.logger.warning(f"No task_id found in Azure Speech API response for song {song.id}. Full response: {result}")
-            raise Exception('Azure Speech API did not return a task ID. The request may have failed. Please try again.')
-
-        song.status = 'submitted'
+        # Set download URL
+        app_url = os.getenv('APP_URL', 'https://speech.aiacopilot.com')
+        song.download_url_1 = f"{app_url}/static/audio/{filename}"
+        song.status = 'completed'
         db.session.commit()
 
-        return result
+        current_app.logger.info(f"Voice clip synthesized successfully for song {song.id}: {song.download_url_1}")
+        return {'status': 'completed', 'url': song.download_url_1}
 
     except requests.exceptions.Timeout:
-        raise Exception('Azure Speech API request timed out. The service may be slow or unavailable. Please try again.')
-    except requests.exceptions.ConnectionError:
-        raise Exception('Cannot connect to Azure Speech API. Please check your internet connection or try again later.')
+        raise Exception('Request timed out. Please try again.')
     except requests.exceptions.RequestException as e:
-        # Catch any other requests exceptions
-        current_app.logger.error(f"Azure Speech API request error: {str(e)}")
-        raise Exception(f'Failed to connect to Azure Speech API: {str(e)}')
+        current_app.logger.error(f"Azure TTS error: {str(e)}")
+        raise Exception(f'Failed to synthesize voice clip: {str(e)}')
 
 
 @bp.route('/', methods=['GET'])
@@ -149,8 +98,7 @@ def get_songs():
 
     # Get query parameters
     status = request.args.get('status')
-    style_id = request.args.get('style_id')
-    vocal_gender = request.args.get('vocal_gender')
+    voice_name = request.args.get('voice_name')
     search = request.args.get('search')
     show_all_users = request.args.get('all_users', 'false').lower() == 'true'
 
@@ -165,11 +113,8 @@ def get_songs():
     if status and status != 'all':
         query = query.filter_by(status=status)
 
-    if style_id:
-        query = query.filter_by(style_id=int(style_id))
-
-    if vocal_gender and vocal_gender != 'all':
-        query = query.filter_by(vocal_gender=vocal_gender)
+    if voice_name:
+        query = query.filter_by(voice_name=voice_name)
 
     # Apply search
     if search:
@@ -226,6 +171,7 @@ def create_song():
         prompt_to_generate=data.get('prompt_to_generate'),
         style_id=data.get('style_id'),
         vocal_gender=data.get('vocal_gender'),
+        voice_name=data.get('voice_name'),
         status=data.get('status', 'create')
     )
 
@@ -233,19 +179,20 @@ def create_song():
         db.session.add(song)
         db.session.commit()
 
-        # Submit to Azure Speech API directly if song status is 'create'
+        # Synthesize voice clip using Azure TTS
         if song.status == 'create':
             try:
-                _submit_to_azure_speech(song)
+                _synthesize_voice_clip(song)
             except Exception as api_error:
                 # Log the error
-                current_app.logger.error(f"Failed to submit to Azure Speech: {api_error}")
-                # Return the error to the user with a helpful message
-                db.session.rollback()
+                current_app.logger.error(f"Failed to synthesize voice clip: {api_error}")
+                # Mark as failed instead of rolling back
+                song.status = 'failed'
+                db.session.commit()
                 return jsonify({'error': str(api_error)}), 500
 
         return jsonify({
-            'message': 'Song submitted for generation' if song.status == 'submitted' else 'Song created successfully',
+            'message': 'Voice clip created successfully' if song.status == 'completed' else 'Voice clip created',
             'song': song.to_dict(include_user=True, include_style=True)
         }), 201
     except Exception as e:
@@ -286,6 +233,8 @@ def update_song(song_id):
         song.style_id = data['style_id']
     if 'vocal_gender' in data:
         song.vocal_gender = data['vocal_gender']
+    if 'voice_name' in data:
+        song.voice_name = data['voice_name']
     if 'status' in data:
         song.status = data['status']
     if 'star_rating' in data:
@@ -335,11 +284,11 @@ def recreate_song(song_id):
 
         db.session.commit()
 
-        # Submit to Azure Speech API
-        _submit_to_azure_speech(song)
+        # Synthesize voice clip using Azure TTS
+        _synthesize_voice_clip(song)
 
         return jsonify({
-            'message': 'Song submitted for regeneration',
+            'message': 'Voice clip regenerated successfully',
             'song': song.to_dict(include_user=True, include_style=True)
         }), 200
     except Exception as e:

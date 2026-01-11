@@ -1,4 +1,4 @@
-// Design tokens for Hay Music Studio
+// Design tokens for Hay Speech Labs
 export const tokens = {
   // Colors - Primary Palette
   colors: {

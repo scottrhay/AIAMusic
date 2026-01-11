@@ -2,14 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { createSong, updateSong } from '../services/songs';
 import './SongModal.css';
 
+// Azure Speech voice options
+const AZURE_VOICES = [
+  { id: 'en-US-AndrewMultilingualNeural', name: 'Andrew Dragon HD Latest' },
+  { id: 'en-US-AvaMultilingualNeural', name: 'Ava Multilingual' },
+  { id: 'en-US-AndrewMultilingualNeural', name: 'Andrew Multilingual' },
+  { id: 'en-US-PhoebeMultilingualNeural', name: 'Phoebe Multilingual' },
+  { id: 'en-US-ChristopherMultilingualNeural', name: 'Christopher Multilingual' },
+  { id: 'en-US-BrandonMultilingualNeural', name: 'Brandon Multilingual' },
+  { id: 'en-US-DustinMultilingualNeural', name: 'Dustin Multilingual' },
+  { id: 'en-US-SteffanMultilingualNeural', name: 'Steffan Multilingual' },
+];
+
 function SongModal({ song, styles, songs, onClose }) {
   const [formData, setFormData] = useState({
     specific_title: '',
     version: 'v1',
     specific_lyrics: '',
-    prompt_to_generate: '',
-    style_id: '',
-    vocal_gender: 'male',
+    voice_name: AZURE_VOICES[0].id,
     status: 'create',
   });
   const [error, setError] = useState('');
@@ -21,19 +31,30 @@ function SongModal({ song, styles, songs, onClose }) {
         specific_title: song.specific_title || '',
         version: song.version || 'v1',
         specific_lyrics: song.specific_lyrics || '',
-        prompt_to_generate: song.prompt_to_generate || '',
-        style_id: song.style_id || '',
-        vocal_gender: song.vocal_gender || 'male',
+        voice_name: song.voice_name || AZURE_VOICES[0].id,
         status: song.status || 'create',
       });
+    } else {
+      // For new clips, check if a voice was selected from the Voices page
+      const savedVoice = localStorage.getItem('selectedVoice');
+      if (savedVoice) {
+        try {
+          const voice = JSON.parse(savedVoice);
+          setFormData(prev => ({ ...prev, voice_name: voice.id }));
+          // Clear the saved voice after using it
+          localStorage.removeItem('selectedVoice');
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
     }
   }, [song]);
 
-  // Auto-calculate version when title changes (only for new songs)
+  // Auto-calculate version when title changes (only for new clips)
   const calculateNextVersion = (title) => {
     if (!title || !songs || songs.length === 0) return 'v1';
 
-    // Find all songs with the same title
+    // Find all clips with the same title
     const sameTitleSongs = songs.filter(s =>
       s.specific_title && s.specific_title.toLowerCase() === title.toLowerCase()
     );
@@ -57,7 +78,7 @@ function SongModal({ song, styles, songs, onClose }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // If title changes and this is a new song (not editing), auto-calculate version
+    // If title changes and this is a new clip (not editing), auto-calculate version
     if (name === 'specific_title' && (!song || !song.id)) {
       const nextVersion = calculateNextVersion(value);
       setFormData((prev) => ({ ...prev, [name]: value, version: nextVersion }));
@@ -74,10 +95,10 @@ function SongModal({ song, styles, songs, onClose }) {
     setSaving(true);
 
     try {
-      // Convert empty string to null for style_id
       const dataToSend = {
         ...formData,
-        style_id: formData.style_id ? parseInt(formData.style_id) : null,
+        // Map voice_name to style field for backend compatibility
+        style_id: null,
       };
 
       if (song && song.id) {
@@ -88,7 +109,7 @@ function SongModal({ song, styles, songs, onClose }) {
 
       onClose(true); // true = refresh the list
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save song');
+      setError(err.response?.data?.error || 'Failed to save voice clip');
     } finally {
       setSaving(false);
     }
@@ -98,7 +119,7 @@ function SongModal({ song, styles, songs, onClose }) {
     <div className="modal-overlay" onClick={() => onClose(false)}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{song && song.id ? 'Edit Song' : 'Add New Song'}</h2>
+          <h2>{song && song.id ? 'Edit Voice Clip' : 'Add Voice Clip'}</h2>
           <button className="modal-close" onClick={() => onClose(false)}>
             ×
           </button>
@@ -109,13 +130,13 @@ function SongModal({ song, styles, songs, onClose }) {
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group" style={{ flex: 3 }}>
-              <label>Song Title</label>
+              <label>Clip Title</label>
               <input
                 type="text"
                 name="specific_title"
                 value={formData.specific_title}
                 onChange={handleChange}
-                placeholder="Enter song title"
+                placeholder="Enter clip title"
               />
             </div>
 
@@ -135,55 +156,25 @@ function SongModal({ song, styles, songs, onClose }) {
           </div>
 
           <div className="form-group">
-            <label>Lyrics (max 5000 characters)</label>
+            <label>Speaker Text</label>
             <textarea
               name="specific_lyrics"
               value={formData.specific_lyrics}
               onChange={handleChange}
-              rows="6"
-              maxLength="5000"
-              placeholder="Enter song lyrics..."
+              rows="8"
+              placeholder="Enter the text you want to synthesize to audio..."
             />
-            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-              {formData.specific_lyrics.length}/5000 characters
-            </div>
           </div>
 
           <div className="form-group">
-            <label>Prompt to Generate Lyrics (Optional)</label>
-            <textarea
-              name="prompt_to_generate"
-              value={formData.prompt_to_generate}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Custom prompt for song generation..."
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Style</label>
-              <select name="style_id" value={formData.style_id} onChange={handleChange}>
-                <option value="">Select a style</option>
-                {styles.map((style) => (
-                  <option key={style.id} value={style.id}>
-                    {style.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Vocal Gender</label>
-              <select
-                name="vocal_gender"
-                value={formData.vocal_gender}
-                onChange={handleChange}
-              >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
+            <label>Voice Name</label>
+            <select name="voice_name" value={formData.voice_name} onChange={handleChange}>
+              {AZURE_VOICES.map((voice) => (
+                <option key={voice.id} value={voice.id}>
+                  {voice.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="modal-footer">
@@ -196,7 +187,7 @@ function SongModal({ song, styles, songs, onClose }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : song && song.id ? 'Update Song' : 'Create Song'}
+              {saving ? 'Saving...' : song && song.id ? 'Update Clip' : 'Create Clip'}
             </button>
           </div>
         </form>

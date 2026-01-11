@@ -6,8 +6,6 @@ import { updateSongRating, updateSong } from '../../services/songs';
 function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlaying }) {
   const [showMenu, setShowMenu] = useState(false);
   const [rating, setRating] = useState(song.star_rating || 0);
-  const [downloadedUrl1, setDownloadedUrl1] = useState(song.downloaded_url_1 || false);
-  const [downloadedUrl2, setDownloadedUrl2] = useState(song.downloaded_url_2 || false);
   const autoDownloadedRef = useRef({
     url1: song.downloaded_url_1 || false,
     url2: song.downloaded_url_2 || false
@@ -36,12 +34,10 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
           : { downloaded_url_2: true };
         await updateSong(song.id, updateData);
 
-        // Update local state and ref
+        // Update ref to prevent re-downloading
         if (trackNumber === 1) {
-          setDownloadedUrl1(true);
           autoDownloadedRef.current.url1 = true;
         } else {
-          setDownloadedUrl2(true);
           autoDownloadedRef.current.url2 = true;
         }
       } catch (error) {
@@ -152,15 +148,15 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
         <div className="track-card__left">
           <div className="track-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 18V5L21 3V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
-              <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
+              <rect x="9" y="2" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="2"/>
+              <path d="M5 10V11C5 14.866 8.13401 18 12 18C15.866 18 19 14.866 19 11V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M12 18V22M12 22H8M12 22H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
 
           <div className="track-info">
             <h3 className="track-title">
-              <span className="track-title-text">{song.specific_title || 'Untitled Song'}</span>
+              <span className="track-title-text">{song.specific_title || 'Untitled Clip'}</span>
               {song.version && <span className="track-version">{song.version}</span>}
             </h3>
             <div className="track-meta-compact">
@@ -317,17 +313,6 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
             </div>
           )}
 
-          {/* Only show expiration reminder if not all files are downloaded */}
-          {(!downloadedUrl1 || !downloadedUrl2) && (
-            <div className="download-reminder">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="2"/>
-                <path d="M10 6V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="10" cy="14" r="1" fill="currentColor"/>
-              </svg>
-              <span>Audio files expire after 15 days - download to save!</span>
-            </div>
-          )}
         </div>
       )}
     </div>

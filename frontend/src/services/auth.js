@@ -36,3 +36,12 @@ export const getCurrentUser = async () => {
   const response = await api.get('/auth/me');
   return response.data.user;
 };
+
+export const handleOAuthCallback = (token, userId, username) => {
+  // Store OAuth token and user info
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify({
+    id: parseInt(userId),
+    username: username
+  }));
+};

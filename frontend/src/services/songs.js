@@ -6,11 +6,8 @@ export const getSongs = async (filters = {}) => {
   if (filters.status && filters.status !== 'all') {
     params.append('status', filters.status);
   }
-  if (filters.style_id) {
-    params.append('style_id', filters.style_id);
-  }
-  if (filters.vocal_gender && filters.vocal_gender !== 'all') {
-    params.append('vocal_gender', filters.vocal_gender);
+  if (filters.voice_name) {
+    params.append('voice_name', filters.voice_name);
   }
   if (filters.search) {
     params.append('search', filters.search);

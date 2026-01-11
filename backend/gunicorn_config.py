@@ -11,7 +11,7 @@ backlog = 2048
 workers = min(multiprocessing.cpu_count() * 2 + 1, 4)  # Cap at 4 workers for container
 worker_class = 'sync'
 worker_connections = 1000
-timeout = 30
+timeout = 120  # Increased for long Azure TTS synthesis
 keepalive = 2
 
 # Logging

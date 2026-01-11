@@ -10,12 +10,15 @@ CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
+    oauth_provider VARCHAR(50),
+    oauth_id VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_username (username),
-    INDEX idx_email (email)
+    INDEX idx_email (email),
+    INDEX idx_oauth (oauth_provider, oauth_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Styles table for music style management (simplified to single style_prompt)
@@ -42,6 +45,7 @@ CREATE TABLE songs (
     prompt_to_generate TEXT,
     style_id INT,
     vocal_gender ENUM('male', 'female', 'other'),
+    voice_name VARCHAR(255),
     download_url_1 VARCHAR(1000),
     downloaded_url_1 BOOLEAN DEFAULT FALSE,
     download_url_2 VARCHAR(1000),
@@ -84,6 +88,7 @@ SELECT
     s.prompt_to_generate,
     s.status,
     s.vocal_gender,
+    s.voice_name,
     s.download_url_1,
     s.downloaded_url_1,
     s.download_url_2,
