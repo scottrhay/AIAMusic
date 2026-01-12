@@ -106,8 +106,6 @@ def azure_speech_callback():
     current_app.logger.info(f"Azure Speech callback: Found {len(audio_data)} audio items")
 
     if is_success and audio_data:
-        song.status = 'completed'
-
         # Extract audio URLs (try multiple possible field names)
         if len(audio_data) > 0:
             item = audio_data[0]
@@ -128,6 +126,13 @@ def azure_speech_callback():
                 item.get('audio')
             )
             current_app.logger.info(f"Azure Speech callback: download_url_2 = {song.download_url_2}")
+
+        # Only mark as completed when BOTH files are ready
+        if song.download_url_1 and song.download_url_2:
+            song.status = 'completed'
+            current_app.logger.info(f"Suno callback: Song {song.id} marked as completed (both URLs ready)")
+        else:
+            current_app.logger.info(f"Suno callback: Song {song.id} still waiting for both URLs (url1: {bool(song.download_url_1)}, url2: {bool(song.download_url_2)})")
 
         try:
             db.session.commit()
