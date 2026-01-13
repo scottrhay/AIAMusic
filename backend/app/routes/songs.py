@@ -8,86 +8,134 @@ import os
 bp = Blueprint('songs', __name__)
 
 
-def _synthesize_voice_clip(song):
-    """Synthesize voice clip using Azure TTS API."""
-    azure_speech_key = os.getenv('AZURE_SPEECH_KEY')
-    azure_speech_region = os.getenv('AZURE_SPEECH_REGION', 'eastus2')
+def _submit_to_suno(song):
+    """Submit song to Suno API for generation."""
+    suno_api_key = os.getenv('SUNO_API_KEY')
+    suno_api_url = os.getenv('SUNO_API_URL', 'https://api.sunoapi.org/api/v1/generate')
 
-    if not azure_speech_key:
-        raise Exception('Azure Speech API key is not configured. Please contact the administrator.')
+    if not suno_api_key:
+        raise Exception('Suno API key is not configured. Please contact the administrator to set up SUNO_API_KEY.')
 
-    # Get text and voice name
-    text = song.specific_lyrics
-    if not text or not text.strip():
-        raise Exception('Speaker text is required for voice clip synthesis.')
+    # Determine if using custom mode
+    # customMode: true means user provides style, title, and lyrics separately
+    # customMode: false means user provides only a prompt and AI generates everything
+    custom_mode = bool(song.specific_lyrics and song.specific_lyrics.strip())
 
-    voice_name = song.voice_name or 'en-US-AndrewMultilingualNeural'
+    # Build Suno API request
+    payload = {
+        'customMode': custom_mode,
+        'instrumental': False,
+        'model': 'V5',
+        'callBackUrl': f"{os.getenv('APP_URL', 'https://music.aiacopilot.com')}/api/v1/webhooks/suno-callback"
+    }
 
-    # Azure TTS endpoint
-    tts_endpoint = f'https://{azure_speech_region}.tts.speech.microsoft.com/cognitiveservices/v1'
+    if custom_mode:
+        # Custom mode: provide lyrics, title, and style
+        payload['prompt'] = song.specific_lyrics
+        payload['title'] = song.specific_title or 'Untitled Song'
+    else:
+        # Simple mode: just provide a prompt
+        payload['prompt'] = song.prompt_to_generate or song.specific_title or 'Create a song'
 
-    # Build SSML
-    ssml = f'''<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='{voice_name}'>
-            {text}
-        </voice>
-    </speak>'''
+    # Add optional fields
+    if song.vocal_gender:
+        payload['vocalGender'] = song.vocal_gender  # Should be 'male' or 'female'
+
+    payload['styleWeight'] = 1
+
+    # Add style if available
+    if song.style and song.style.style_prompt:
+        payload['style'] = song.style.style_prompt
+    else:
+        payload['style'] = 'pop'
 
     headers = {
-        'Ocp-Apim-Subscription-Key': azure_speech_key,
-        'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
+        'Authorization': f'Bearer {suno_api_key}',
+        'Content-Type': 'application/json'
     }
 
     try:
-        current_app.logger.info(f"Synthesizing voice clip for song {song.id} with voice {voice_name}")
-        response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=60)
+        response = requests.post(suno_api_url, json=payload, headers=headers, timeout=10)
 
-        # Log the status code for debugging
-        current_app.logger.info(f"Azure TTS API Status: {response.status_code}")
+        # Log the status code and response for debugging
+        current_app.logger.info(f"Suno API Status: {response.status_code}")
 
-        # Handle specific HTTP error codes
+        # Handle specific HTTP error codes with user-friendly messages
         if response.status_code == 401:
-            raise Exception('Azure Speech API authentication failed.')
-        elif response.status_code == 403:
-            raise Exception('Azure Speech API access denied.')
+            raise Exception('Suno API authentication failed. The API key may be invalid or expired. Please contact the administrator.')
+        elif response.status_code == 402 or response.status_code == 403:
+            # Payment required or forbidden - likely out of credits
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('message', error_data.get('error', ''))
+            except:
+                error_msg = ''
+            raise Exception(f'Suno API access denied. You may be out of credits or your subscription has expired. {error_msg}'.strip())
         elif response.status_code == 429:
-            raise Exception('Rate limit exceeded. Please try again later.')
+            raise Exception('Suno API rate limit exceeded. Please wait a few minutes and try again.')
         elif response.status_code >= 500:
-            raise Exception('Azure Speech API is currently unavailable.')
+            raise Exception('Suno API is currently unavailable. The service may be down. Please try again later.')
 
         response.raise_for_status()
 
-        # Save audio to a file
-        import uuid
-        from pathlib import Path
+        result = response.json()
 
-        # Create audio directory if it doesn't exist
-        audio_dir = Path('/app/static/audio')
-        audio_dir.mkdir(parents=True, exist_ok=True)
+        # Log the full response for debugging
+        current_app.logger.info(f"Suno API Response: {result}")
 
-        # Generate unique filename
-        filename = f"{song.id}_{uuid.uuid4().hex[:8]}.mp3"
-        filepath = audio_dir / filename
+        # Check for error in response body
+        if result and isinstance(result, dict):
+            # Check for error code (some APIs return code instead of status)
+            if result.get('code') and result.get('code') >= 400:
+                error_msg = result.get('msg') or result.get('message') or result.get('error') or 'Unknown error from Suno API'
+                raise Exception(f'Suno API error: {error_msg}')
 
-        # Write audio file
-        with open(filepath, 'wb') as f:
-            f.write(response.content)
+            if result.get('error') or result.get('status') == 'error':
+                error_msg = result.get('message') or result.get('msg') or result.get('error') or 'Unknown error from Suno API'
+                raise Exception(f'Suno API error: {error_msg}')
 
-        # Set download URL
-        app_url = os.getenv('APP_URL', 'https://speech.aiacopilot.com')
-        song.download_url_1 = f"{app_url}/static/audio/{filename}"
-        song.status = 'completed'
+        # Update song with Suno task ID and set status to submitted
+        # The Suno API should return a task_id that we need to store
+        task_id = None
+
+        if result and isinstance(result, dict):
+            # Check if it's nested in a data object (standard Suno API response)
+            task_data = result.get('data', {})
+            if isinstance(task_data, dict):
+                task_id = task_data.get('taskId') or task_data.get('task_id')
+
+            # Also try top-level fields as fallback
+            if not task_id:
+                task_id = (result.get('taskId') or result.get('task_id') or
+                          result.get('id') or result.get('ID'))
+
+            # Some APIs return data as array
+            if not task_id and isinstance(task_data, list) and len(task_data) > 0:
+                first_item = task_data[0]
+                if isinstance(first_item, dict):
+                    task_id = (first_item.get('taskId') or first_item.get('task_id') or
+                              first_item.get('id') or first_item.get('ID'))
+
+        if task_id:
+            song.suno_task_id = task_id
+            current_app.logger.info(f"Stored Suno task_id: {task_id} for song {song.id}")
+        else:
+            current_app.logger.warning(f"No task_id found in Suno API response for song {song.id}. Full response: {result}")
+            raise Exception('Suno API did not return a task ID. The request may have failed. Please try again.')
+
+        song.status = 'submitted'
         db.session.commit()
 
-        current_app.logger.info(f"Voice clip synthesized successfully for song {song.id}: {song.download_url_1}")
-        return {'status': 'completed', 'url': song.download_url_1}
+        return result
 
     except requests.exceptions.Timeout:
-        raise Exception('Request timed out. Please try again.')
+        raise Exception('Suno API request timed out. The service may be slow or unavailable. Please try again.')
+    except requests.exceptions.ConnectionError:
+        raise Exception('Cannot connect to Suno API. Please check your internet connection or try again later.')
     except requests.exceptions.RequestException as e:
-        current_app.logger.error(f"Azure TTS error: {str(e)}")
-        raise Exception(f'Failed to synthesize voice clip: {str(e)}')
+        # Catch any other requests exceptions
+        current_app.logger.error(f"Suno API request error: {str(e)}")
+        raise Exception(f'Failed to connect to Suno API: {str(e)}')
 
 
 @bp.route('/', methods=['GET'])
@@ -98,7 +146,8 @@ def get_songs():
 
     # Get query parameters
     status = request.args.get('status')
-    voice_name = request.args.get('voice_name')
+    style_id = request.args.get('style_id')
+    vocal_gender = request.args.get('vocal_gender')
     search = request.args.get('search')
     show_all_users = request.args.get('all_users', 'false').lower() == 'true'
 
@@ -113,8 +162,11 @@ def get_songs():
     if status and status != 'all':
         query = query.filter_by(status=status)
 
-    if voice_name:
-        query = query.filter_by(voice_name=voice_name)
+    if style_id:
+        query = query.filter_by(style_id=int(style_id))
+
+    if vocal_gender and vocal_gender != 'all':
+        query = query.filter_by(vocal_gender=vocal_gender)
 
     # Apply search
     if search:
@@ -171,7 +223,6 @@ def create_song():
         prompt_to_generate=data.get('prompt_to_generate'),
         style_id=data.get('style_id'),
         vocal_gender=data.get('vocal_gender'),
-        voice_name=data.get('voice_name'),
         status=data.get('status', 'create')
     )
 
@@ -179,20 +230,19 @@ def create_song():
         db.session.add(song)
         db.session.commit()
 
-        # Synthesize voice clip using Azure TTS
+        # Submit to Suno API directly if song status is 'create'
         if song.status == 'create':
             try:
-                _synthesize_voice_clip(song)
-            except Exception as api_error:
+                _submit_to_suno(song)
+            except Exception as suno_error:
                 # Log the error
-                current_app.logger.error(f"Failed to synthesize voice clip: {api_error}")
-                # Mark as failed instead of rolling back
-                song.status = 'failed'
-                db.session.commit()
-                return jsonify({'error': str(api_error)}), 500
+                current_app.logger.error(f"Failed to submit to Suno: {suno_error}")
+                # Return the error to the user with a helpful message
+                db.session.rollback()
+                return jsonify({'error': str(suno_error)}), 500
 
         return jsonify({
-            'message': 'Voice clip created successfully' if song.status == 'completed' else 'Voice clip created',
+            'message': 'Song submitted for generation' if song.status == 'submitted' else 'Song created successfully',
             'song': song.to_dict(include_user=True, include_style=True)
         }), 201
     except Exception as e:
@@ -233,8 +283,6 @@ def update_song(song_id):
         song.style_id = data['style_id']
     if 'vocal_gender' in data:
         song.vocal_gender = data['vocal_gender']
-    if 'voice_name' in data:
-        song.voice_name = data['voice_name']
     if 'status' in data:
         song.status = data['status']
     if 'star_rating' in data:
@@ -274,7 +322,7 @@ def recreate_song(song_id):
         return jsonify({'error': 'Unauthorized to recreate this song'}), 403
 
     try:
-        # Reset download URLs and submit to Azure Speech
+        # Reset download URLs and submit to Suno
         song.download_url_1 = None
         song.download_url_2 = None
         song.status = 'create'
@@ -284,11 +332,11 @@ def recreate_song(song_id):
 
         db.session.commit()
 
-        # Synthesize voice clip using Azure TTS
-        _synthesize_voice_clip(song)
+        # Submit to Suno API
+        _submit_to_suno(song)
 
         return jsonify({
-            'message': 'Voice clip regenerated successfully',
+            'message': 'Song submitted for regeneration',
             'song': song.to_dict(include_user=True, include_style=True)
         }), 200
     except Exception as e:

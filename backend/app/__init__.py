@@ -32,18 +32,17 @@ def create_app(config_name='default'):
     CORS(app, origins=app.config['CORS_ORIGINS'])
 
     # Register blueprints
-    from app.routes import auth, songs, styles, webhooks, speech
+    from app.routes import auth, songs, styles, webhooks
 
     api_prefix = app.config['API_PREFIX']
     app.register_blueprint(auth.bp, url_prefix=f'{api_prefix}/auth')
     app.register_blueprint(songs.bp, url_prefix=f'{api_prefix}/songs')
     app.register_blueprint(styles.bp, url_prefix=f'{api_prefix}/styles')
     app.register_blueprint(webhooks.bp, url_prefix=f'{api_prefix}/webhooks')
-    app.register_blueprint(speech.bp, url_prefix=f'{api_prefix}/speech')
 
     # Health check endpoint
     @app.route('/health')
     def health_check():
-        return {'status': 'healthy', 'service': 'AIASpeech API'}, 200
+        return {'status': 'healthy', 'service': 'AIAMusic API'}, 200
 
     return app
